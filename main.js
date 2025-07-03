@@ -1,4 +1,3 @@
-// main.js
 require('dotenv').config();
 const axios = require('axios');
 const fs = require('fs');
@@ -19,14 +18,23 @@ if (pesanList.length === 0) {
   process.exit(1);
 }
 
-if (balasanList.length === 0) {
-  console.warn("[!] File balasan.txt kosong. Auto-reply akan dinonaktifkan.");
-}
-
 let indexPesan = 0;
 let isPaused = false;
 
-// Kirim pesan rutin
+async function hapusPesan(messageId) {
+  try {
+    await axios.delete(`https://discord.com/api/v9/channels/${channelId}/messages/${messageId}`, {
+      headers: {
+        Authorization: token,
+        'User-Agent': 'Mozilla/5.0'
+      }
+    });
+    console.log(`[🗑️] Pesan ${messageId} berhasil dihapus`);
+  } catch (err) {
+    console.error(`[!] Gagal hapus pesan:`, err.response?.status, err.response?.data || err.message);
+  }
+}
+
 async function kirimPesan() {
   if (isPaused) return;
 
@@ -34,7 +42,7 @@ async function kirimPesan() {
   indexPesan = (indexPesan + 1) % pesanList.length;
 
   try {
-    await axios.post(`https://discord.com/api/v9/channels/${channelId}/messages`,
+    const res = await axios.post(`https://discord.com/api/v9/channels/${channelId}/messages`,
       { content: pesan },
       {
         headers: {
@@ -44,7 +52,10 @@ async function kirimPesan() {
         }
       }
     );
+
     console.log(`[✔] Kirim rutin: "${pesan}"`);
+    setTimeout(() => hapusPesan(res.data.id), 500); // 🔥 Hapus setelah 0.5 detik
+
   } catch (err) {
     console.error(`[!] Gagal kirim rutin:`, err.response?.status, err.response?.data || err.message);
   }
@@ -53,7 +64,7 @@ async function kirimPesan() {
 setInterval(kirimPesan, 60 * 1000);
 kirimPesan(); // Kirim pertama langsung
 
-// === WebSocket untuk deteksi mention ===
+// ===== WebSocket untuk auto-reply =====
 const ws = new WebSocket('wss://gateway.discord.gg/?v=9&encoding=json');
 let heartbeatInterval;
 
@@ -75,7 +86,7 @@ ws.on('message', (data) => {
       op: 2,
       d: {
         token: token,
-        intents: 513, // GUILD_MESSAGES + DIRECT_MESSAGES
+        intents: 513,
         properties: {
           os: "linux",
           browser: "chrome",
@@ -95,25 +106,27 @@ ws.on('message', (data) => {
       isPaused = true;
       const balasan = balasanList[Math.floor(Math.random() * balasanList.length)];
 
-      console.log(`[⏳] Kamu di-mention oleh ${d.author.username}, membalas dalam 60 detik...`);
+      console.log(`[⏳] Di-mention oleh ${d.author.username}, membalas dalam 60 detik...`);
 
-      setTimeout(() => {
-        axios.post(`https://discord.com/api/v9/channels/${channelId}/messages`,
-          { content: balasan },
-          {
-            headers: {
-              Authorization: token,
-              'Content-Type': 'application/json',
-              'User-Agent': 'Mozilla/5.0'
+      setTimeout(async () => {
+        try {
+          const res = await axios.post(`https://discord.com/api/v9/channels/${channelId}/messages`,
+            { content: balasan },
+            {
+              headers: {
+                Authorization: token,
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0'
+              }
             }
-          }
-        ).then(() => {
-          console.log(`[💬] Auto-reply: "${balasan}" ke ${d.author.username}`);
-        }).catch(err => {
+          );
+          console.log(`[💬] Auto-reply ke ${d.author.username}: "${balasan}"`);
+          setTimeout(() => hapusPesan(res.data.id), 500); // 🔥 Hapus balasan setelah 0.5 detik
+        } catch (err) {
           console.error(`[!] Gagal auto-reply:`, err.response?.status, err.response?.data || err.message);
-        }).finally(() => {
+        } finally {
           isPaused = false;
-        });
+        }
       }, 60 * 1000);
     }
   }
