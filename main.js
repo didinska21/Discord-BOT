@@ -1,63 +1,121 @@
-// main.js
 require('dotenv').config();
 const axios = require('axios');
 const fs = require('fs');
+const WebSocket = require('ws');
 
-// Ambil token dan channel dari file .env
 const token = process.env.USER_TOKEN;
 const channelId = process.env.CHANNEL_ID;
+const userId = process.env.USER_ID;
 
-// Baca isi pesan dari pesan.txt
-const messages = fs.readFileSync('pesan.txt', 'utf-8')
-  .split('\n')
-  .map(line => line.trim())
-  .filter(line => line !== '');
+const pesanList = fs.readFileSync('pesan.txt', 'utf-8')
+  .split('\n').map(p => p.trim()).filter(p => p !== '');
 
-if (messages.length === 0) {
-  console.error("[!] File pesan.txt kosong atau tidak valid.");
+const balasanList = fs.readFileSync('balasan.txt', 'utf-8')
+  .split('\n').map(b => b.trim()).filter(b => b !== '');
+
+if (pesanList.length === 0) {
+  console.error("[!] File pesan.txt kosong.");
   process.exit(1);
 }
 
-const interval = 60 * 1000; // 60 detik
-let currentIndex = 0;
+if (balasanList.length === 0) {
+  console.warn("[!] File balasan.txt kosong. Auto-reply dinonaktifkan.");
+}
 
-async function sendMessage() {
-  const message = messages[currentIndex];
-  currentIndex = (currentIndex + 1) % messages.length;
+let indexPesan = 0;
+const interval = 60 * 1000; // 60 detik
+
+// Kirim pesan rutin dari pesan.txt
+async function kirimPesan() {
+  const pesan = pesanList[indexPesan];
+  indexPesan = (indexPesan + 1) % pesanList.length;
 
   try {
-    await axios.post(
-      `https://discord.com/api/v9/channels/${channelId}/messages`,
-      { content: message },
+    await axios.post(`https://discord.com/api/v9/channels/${channelId}/messages`,
+      { content: pesan },
       {
         headers: {
           Authorization: token,
-          "Content-Type": "application/json",
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0'
         }
       }
     );
-    console.log(`[✔] Terkirim: "${message}"`);
+    console.log(`[✔] Otomatis kirim: "${pesan}"`);
   } catch (err) {
-    if (err.response) {
-      const { status, data } = err.response;
-
-      if (status === 429) {
-        const wait = data?.retry_after || 0;
-        console.warn(`[⏳] Rate limited! Tunggu ${wait} detik`);
-      } else {
-        console.error(`[!] Error ${status}:`, data?.message || data);
-      }
-
+    const res = err.response;
+    if (res?.status === 429) {
+      console.warn(`[⏳] Rate limited! Tunggu ${res.data.retry_after} detik`);
     } else {
-      console.error(`[!] Error koneksi:`, err.message);
+      console.error(`[!] Gagal kirim:`, res?.status, res?.data || err.message);
     }
   }
 }
 
-// Kirim pertama kali langsung saat script jalan
-sendMessage();
+// Jalankan interval rutin
+setInterval(kirimPesan, interval);
+kirimPesan(); // kirim pertama kali
 
-// Lalu kirim tiap 60 detik sekali, berurutan dan loop
-setInterval(sendMessage, interval);
+// ====== Auto-reply pakai WebSocket ======
+const ws = new WebSocket('wss://gateway.discord.gg/?v=9&encoding=json');
+
+ws.on('open', () => {
+  console.log('[📡] Terhubung ke Gateway Discord (WebSocket)...');
+});
+
+let heartbeatInterval;
+
+ws.on('message', (data) => {
+  const payload = JSON.parse(data);
+  const { t: eventType, s: sequence, op, d } = payload;
+
+  if (op === 10) {
+    const { heartbeat_interval } = d;
+    heartbeatInterval = setInterval(() => {
+      ws.send(JSON.stringify({ op: 1, d: sequence }));
+    }, heartbeat_interval);
+
+    // Kirim IDENTIFY
+    ws.send(JSON.stringify({
+      op: 2,
+      d: {
+        token: token,
+        intents: 513, // GUILD_MESSAGES + DIRECT_MESSAGES
+        properties: {
+          os: "linux",
+          browser: "chrome",
+          device: "pc"
+        }
+      }
+    }));
+  }
+
+  if (eventType === 'MESSAGE_CREATE') {
+    if (!d.mentions || d.author?.id === userId) return;
+
+    const mentioned = d.mentions.some(m => m.id === userId);
+    if (mentioned && d.channel_id === channelId) {
+      const balasan = balasanList[Math.floor(Math.random() * balasanList.length)];
+
+      axios.post(`https://discord.com/api/v9/channels/${channelId}/messages`,
+        { content: balasan },
+        {
+          headers: {
+            Authorization: token,
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0'
+          }
+        }
+      ).then(() => {
+        console.log(`[💬] Auto-reply: "${balasan}" ke ${d.author.username}`);
+      }).catch(err => {
+        console.error(`[!] Gagal auto-reply:`, err.response?.status, err.response?.data || err.message);
+      });
+    }
+  }
+});
+
+ws.on('close', () => {
+  console.warn('[⚠️] Koneksi WebSocket ditutup. Reconnect diperlukan.');
+  clearInterval(heartbeatInterval);
+});
