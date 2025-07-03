@@ -1,28 +1,32 @@
-7-require('dotenv').config();
+// main.js
+require('dotenv').config();
 const axios = require('axios');
 const fs = require('fs');
 
+// Ambil token dan channel dari file .env
 const token = process.env.USER_TOKEN;
 const channelId = process.env.CHANNEL_ID;
 
-// Ambil pesan dari pesan.txt
+// Baca isi pesan dari pesan.txt
 const messages = fs.readFileSync('pesan.txt', 'utf-8')
   .split('\n')
   .map(line => line.trim())
-  .filter(line => line.length > 0);
+  .filter(line => line !== '');
 
 if (messages.length === 0) {
-  console.error("[!] File pesan.txt kosong.");
+  console.error("[!] File pesan.txt kosong atau tidak valid.");
   process.exit(1);
 }
 
 const interval = 60 * 1000; // 60 detik
+let currentIndex = 0;
 
 async function sendMessage() {
-  const message = messages[Math.floor(Math.random() * messages.length)];
+  const message = messages[currentIndex];
+  currentIndex = (currentIndex + 1) % messages.length;
 
   try {
-    const res = await axios.post(
+    await axios.post(
       `https://discord.com/api/v9/channels/${channelId}/messages`,
       { content: message },
       {
@@ -40,16 +44,20 @@ async function sendMessage() {
       const { status, data } = err.response;
 
       if (status === 429) {
-        console.warn(`[⏳] Kena rate limit! Tunggu ${data.retry_after} detik`);
+        const wait = data?.retry_after || 0;
+        console.warn(`[⏳] Rate limited! Tunggu ${wait} detik`);
       } else {
-        console.error(`[!] Gagal (${status}):`, data?.message || data);
+        console.error(`[!] Error ${status}:`, data?.message || data);
       }
 
     } else {
-      console.error(`[!] Error jaringan atau lain-lain:`, err.message);
+      console.error(`[!] Error koneksi:`, err.message);
     }
   }
 }
 
+// Kirim pertama kali langsung saat script jalan
+sendMessage();
+
+// Lalu kirim tiap 60 detik sekali, berurutan dan loop
 setInterval(sendMessage, interval);
-sendMessage(); // kirim pertama langsung
