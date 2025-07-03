@@ -1,4 +1,4 @@
-require('dotenv').config();
+7-require('dotenv').config();
 const axios = require('axios');
 const fs = require('fs');
 
