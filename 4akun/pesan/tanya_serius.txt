@@ -1,0 +1,10 @@
+Kalau farming di Linea, tokennya nanti bisa di-claim langsung gak ya?
+Btw, snapshot itu biasanya diambil diam-diam atau diumumin dulu?
+Airdrop OmniChain kira-kira tokennya langsung liquid atau lock?
+Ada yang pernah coba gasless TX di Base? worth it gak?
+Kalau pakai wallet 2-3 buat farming, aman gak dari banned snapshot?
+Blast tuh farming-nya dihitung per hari atau akumulasi semua?
+StarkNet farming-nya lebih bagus pakai bridge mana sih?
+Kalau dapet error “too many requests” itu karena spam RPC ya?
+Scroll farming sekarang pake tugas harian atau volume TX aja?
+LayerZero farming perlu interaksi di semua protokol atau cukup bridge?
