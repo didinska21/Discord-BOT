@@ -1,0 +1,10 @@
+Kalau liat TVL-nya, ZkSync sekarang udah tembus 200M lebih.
+Menurutku Blast terlalu overhyped, volume nggak stabil.
+Banyak wallet farming pakai proxy, tapi efeknya ke RPC delay parah.
+Secara teknikal StarkNet memang unggul, tapi user growth lambat.
+Optimism sekarang lebih fokus ke OP Stack, jadi agak sepi farming.
+Base performa cepat tapi komunitas dev masih kecil.
+Kalau farming terus di chain spam, takutnya disqualified sih.
+Scroll punya UX yang mirip zkSync, tapi bridging-nya agak ribet.
+Kadang farming di testnet malah bikin wasting time kalau gak lolos snapshot.
+Kayaknya yang farming early Arbitrum dulu udah sadar pola snapshot-nya.
