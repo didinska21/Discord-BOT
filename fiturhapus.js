@@ -17,16 +17,21 @@ if (pesanList.length === 0) {
 let indexPesan = 0;
 
 async function hapusPesan(messageId) {
-  try {
-    await axios.delete(`https://discord.com/api/v9/channels/${channelId}/messages/${messageId}`, {
-      headers: {
-        Authorization: token,
-        'User-Agent': 'Mozilla/5.0'
-      }
-    });
-    console.log(`\n[🗑️] Pesan ${messageId} berhasil dihapus`);
-  } catch (err) {
-    console.error(`\n[!] Gagal hapus pesan:`, err.response?.status, err.response?.data || err.message);
+  while (true) {
+    try {
+      await axios.delete(`https://discord.com/api/v9/channels/${channelId}/messages/${messageId}`, {
+        headers: {
+          Authorization: token,
+          'User-Agent': 'Mozilla/5.0'
+        }
+      });
+      console.log(`\n[🗑️] Pesan ${messageId} berhasil dihapus`);
+      break; // Keluar dari loop jika berhasil
+    } catch (err) {
+      console.error(`\n[!] Gagal hapus pesan:`, err.response?.status, err.response?.data || err.message);
+      console.log(`[↻] Retry hapus pesan dalam 3 detik...`);
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
   }
 }
 
@@ -39,14 +44,14 @@ async function countdown(seconds) {
     linewrap: false,
     clearOnComplete: true
   });
-
+  
   bar.start(seconds, 0, { remaining: seconds });
-
+  
   for (let i = 0; i <= seconds; i++) {
     bar.update(i, { remaining: seconds - i });
     await new Promise(resolve => setTimeout(resolve, 1000));
   }
-
+  
   bar.stop();
   console.log('⏰ Waktu tunggu selesai, lanjut kirim pesan berikutnya...\n');
 }
@@ -54,7 +59,7 @@ async function countdown(seconds) {
 async function kirimPesanDenganRetry() {
   const pesan = pesanList[indexPesan];
   indexPesan = (indexPesan + 1) % pesanList.length;
-
+  
   while (true) {
     try {
       const res = await axios.post(`https://discord.com/api/v9/channels/${channelId}/messages`,
@@ -67,7 +72,10 @@ async function kirimPesanDenganRetry() {
           }
         }
       );
+      
       console.log(`\n[✔] Kirim: "${pesan}"`);
+      
+      // Tunggu sebentar lalu hapus pesan dengan retry
       setTimeout(() => hapusPesan(res.data.id), 500);
       break;
     } catch (err) {
@@ -75,7 +83,7 @@ async function kirimPesanDenganRetry() {
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
   }
-
+  
   await countdown(60);
   kirimPesanDenganRetry();
 }
