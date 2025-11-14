@@ -29,8 +29,8 @@ async function hapusPesan(messageId) {
       break; // Keluar dari loop jika berhasil
     } catch (err) {
       console.error(`\n[!] Gagal hapus pesan:`, err.response?.status, err.response?.data || err.message);
-      console.log(`[↻] Retry hapus pesan dalam 3 detik...`);
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      console.log(`[↻] Retry hapus pesan dalam 1 detik...`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
 }
